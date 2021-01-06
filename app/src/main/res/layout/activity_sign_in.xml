@@ -31,6 +31,14 @@
         android:inputType="textPassword" />
 
     <EditText
+        android:id="@+id/repeatPasswordEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="Подтвердить пароль"
+        android:inputType="textPassword" />
+
+    <EditText
         android:id="@+id/nameEditText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -53,6 +61,7 @@
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="8dp"
         android:clickable="true"
+        android:onClick="toggleLoginMode"
         android:text="Переключить"
         android:textSize="16dp" />
 
