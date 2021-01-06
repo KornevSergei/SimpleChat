@@ -4,10 +4,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.TextWatcher;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -15,11 +20,14 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 
 import java.sql.Array;
 import java.util.ArrayList;
@@ -43,9 +51,23 @@ public class MainActivity extends AppCompatActivity {
     //будем здесь хранить сообщения
     DatabaseReference messagesDatabaseReference;
     //будем здесь хранить пользователей
-
     //для слушания измениеий файрбейс
     ChildEventListener messagesChildEventListener;
+
+
+
+    DatabaseReference usersDatabaseReference;
+    //для слушания измениеий файрбейс
+    ChildEventListener usersChildEventListener;
+
+    private static final int RC_IMAGE_PICKER = 123;
+
+
+    //переменые для загрузки изображений в хранилище файрбейс
+    FirebaseStorage storage;
+    StorageReference chatImagesStorageReference;
+
+
 
 
     @Override
@@ -57,6 +79,13 @@ public class MainActivity extends AppCompatActivity {
         //получаем доступ ко всей базе дынных к корневой папке
         database = FirebaseDatabase.getInstance();
         messagesDatabaseReference = database.getReference().child("messages");
+        usersDatabaseReference = database.getReference().child("users");
+        chatImagesStorageReference = storage.getReference().child("ChatImages");
+
+
+        //инициализирум для изобраений
+        storage = FirebaseStorage.getInstance();
+
 
 
         progressBar = findViewById(R.id.progressBar);
@@ -64,9 +93,14 @@ public class MainActivity extends AppCompatActivity {
         sendMessageButton = findViewById(R.id.sendMessageButton);
         messageEditText = findViewById(R.id.messageEditText);
 
+        //получаем информацию из активити регистрации и присваиваем по ключу
+        Intent intent = getIntent();
+        if (intent != null) {
+            userName = intent.getStringExtra("userName");
+        } else {
+            userName = "Стандартное имя";
+        }
 
-        //инициализируем
-        userName = "Default User";
 
         messageListView = findViewById(R.id.messageListView);
 
@@ -125,12 +159,62 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        //метод для отправки картинок в сообщении
         sendImageButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                //создали интент для получения контента изображений
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                //устанавливаем тип интента, все варианты изображений
+                intent.setType("image/*");
+                //указываем что будем брать изображения с локального хранилища
+                intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+                //оздаём активти выбора и помещаем
+                startActivityForResult(Intent.createChooser(intent, "Выберите изображения"),RC_IMAGE_PICKER);
 
             }
         });
+
+        //когда происходит собтие - включается один из этих методов, для постоянного получения собщений
+        usersChildEventListener = new ChildEventListener() {
+            @Override
+            public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
+                User user = snapshot.getValue(User.class);
+                //делаем проверку на определения конкретного юзера из файрбейс
+                if (user.getId().equals(FirebaseAuth.getInstance().getCurrentUser().getUid())){
+                    //если всё совпадает присваиваем имя
+                    userName = user.getName();
+                }
+
+            }
+
+            @Override
+            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
+
+            }
+
+            @Override
+            public void onChildRemoved(@NonNull DataSnapshot snapshot) {
+
+            }
+
+            @Override
+            public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
+
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+
+            }
+        };
+
+        usersDatabaseReference.addChildEventListener(usersChildEventListener);
+
+
+
+
+
 
 
         //когда происходит собтие - включается один из этих методов, для постоянного получения собщений
@@ -168,5 +252,46 @@ public class MainActivity extends AppCompatActivity {
 
         //обавляем введеные сообщения в адаптер
         messagesDatabaseReference.addChildEventListener(messagesChildEventListener);
+    }
+
+    //делаем метод для меню выхода
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+
+    //елаем выход из логина
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+
+        switch (item.getItemId()) {
+            case R.id.sign_out:
+                FirebaseAuth.getInstance().signOut();
+                //после выхода возвращаемся на главный экран
+                startActivity(new Intent(MainActivity.this, SignInActivity.class));
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+
+    //метод для обработки результат запроса изображений
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        //проверяем на соответствие вызовов выбора изображения
+        if (requestCode == RC_IMAGE_PICKER && requestCode == RESULT_OK){
+            Uri selectedImageUri = data.getData();
+
+
+            StorageReference imageReference = chatImagesStorageReference.child(selectedImageUri.getLastPathSegment());
+
+        }
     }
 }
